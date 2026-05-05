@@ -2,122 +2,78 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI 垃圾辨識系統</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/ml5@latest/dist/ml5.min.js"></script>
 <style>
-body { margin: 0; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; font-family: -apple-system, sans-serif; overflow-x: hidden; }
-#header { width: 100%; background: #2c3e50; color: white; padding: 15px 0; text-align: center; font-size: 1.2rem; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-#video-container { width: 90vw; height: 90vw; max-width: 400px; max-height: 400px; margin-top: 20px; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.2); background: #000; position: relative; }
-#result-card { width: 85%; max-width: 380px; background: white; margin-top: 20px; padding: 20px; border-radius: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-.label-text { font-size: 2rem; color: #e67e22; font-weight: bold; margin-bottom: 5px; }
-.conf-text { color: #7f8c8d; font-size: 1rem; }
-#loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99; transition: opacity 0.5s; }
-.spinner { width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+body { margin: 0; background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; }
+#header { width: 100%; background: #2c3e50; color: white; padding: 15px; text-align: center; font-size: 1.2rem; }
+#video-container { width: 90vw; max-width: 400px; height: 90vw; max-height: 400px; margin-top: 20px; border-radius: 20px; overflow: hidden; position: relative; background: #000; }
+#result-card { width: 85%; max-width: 380px; background: white; margin-top: 20px; padding: 20px; border-radius: 20px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.label-text { font-size: 1.8rem; color: #e67e22; font-weight: bold; }
+#loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
 </style>
 </head>
 <body>
-<div id="loading">
-<div class="spinner"></div>
-<div id="status-text">AI 模型載入中...</div>
-<p style="font-size: 0.8rem; color: #888; margin-top: 10px;">請確保已允許相機權限</p>
+<div id="loading-screen">
+<h2 id="status">正在啟動相機與模型...</h2>
+<p>請確保已允許相機權限</p>
 </div>
 
 <div id="header">垃圾辨識 AI 工具</div>
 <div id="video-container"></div>
-
 <div id="result-card">
-<div class="label-text" id="label">辨識中...</div>
-<div class="conf-text" id="confidence">信心度: --%</div>
+<div class="label-text" id="label">準備中...</div>
+<div id="confidence">信心度: --%</div>
 </div>
 
 <script>
-// 你的 Teachable Machine 模型連結
+// 妳的模型網址
 const modelURL = 'https://teachablemachine.withgoogle.com/models/m1uAKHENd/';
-
 let classifier;
 let video;
-let label = "等待中...";
-let confidence = "";
-
-function preload() {
-// 載入模型
-classifier = ml5.imageClassifier(modelURL + 'model.json');
-}
 
 function setup() {
-// 建立畫布
+// 建立畫布並放入容器
 let size = min(windowWidth * 0.9, 400);
 let canvas = createCanvas(size, size);
 canvas.parent('video-container');
 
-// 設定相機參數，強制使用後鏡頭
-let constraints = {
-video: {
-facingMode: "environment",
-width: { ideal: 640 },
-height: { ideal: 640 }
-},
-audio: false
-};
-
-// 啟動相機
+// 啟動相機 (強制後鏡頭 + playsinline)
+let constraints = { video: { facingMode: "environment" }, audio: false };
 video = createCapture(constraints, function(stream) {
-console.log("相機啟動成功");
-// 針對 iOS Safari 的相容性修正
+// 修正 iOS 影片不播放問題
 let videoElt = document.querySelector('video');
-if (videoElt) {
 videoElt.setAttribute('playsinline', '');
-videoElt.setAttribute('webkit-playsinline', '');
 videoElt.play();
-}
-});
 
+// 相機好了才載入模型
+document.getElementById('status').innerText = "相機已就緒，載入模型中...";
+classifier = ml5.imageClassifier(modelURL + 'model.json', video, modelLoaded);
+});
 video.size(size, size);
 video.hide();
-
-// 開始辨識
-classifyVideo();
 }
 
-function draw() {
-// 將影像畫在畫布上
-image(video, 0, 0, width, height);
+function modelLoaded() {
+console.log("Model Loaded!");
+document.getElementById('loading-screen').style.display = 'none';
+classifyVideo();
 }
 
 function classifyVideo() {
 classifier.classify(video, (error, results) => {
-if (error) {
-console.error(error);
-return;
+if (!error && results) {
+document.getElementById('label').innerText = results[0].label;
+document.getElementById('confidence').innerText = "信心度: " + (results[0].confidence * 100).toFixed(1) + "%";
 }
-
-if (results && results.length > 0) {
-label = results[0].label;
-confidence = (results[0].confidence * 100).toFixed(1);
-
-// 更新介面
-document.getElementById('label').innerText = label;
-document.getElementById('confidence').innerText = "信心度: " + confidence + "%";
-
-// 隱藏載入畫面
-document.getElementById('loading').style.opacity = '0';
-setTimeout(() => {
-document.getElementById('loading').style.display = 'none';
-}, 500);
-}
-// 持續循環辨識
 classifyVideo();
 });
 }
 
-// 當視窗大小改變時，自動調整畫布大小
-function windowResized() {
-let size = min(windowWidth * 0.9, 400);
-resizeCanvas(size, size);
-video.size(size, size);
+function draw() {
+image(video, 0, 0, width, height);
 }
 </script>
 </body>
