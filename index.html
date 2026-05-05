@@ -1,8 +1,3 @@
-
-黃笠喆 <huanglizhe555@gmail.com>
-下午3:26 (0 分鐘前)
-寄給 我
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -59,6 +54,7 @@ audio: false
 };
 video = createCapture(constraints);
 video.size(canvasSize, canvasSize);
+video.elt.setAttribute('playsinline', '');
 video.hide();
 classifyVideo();
 }
