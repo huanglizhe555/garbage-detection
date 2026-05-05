@@ -1,0 +1,92 @@
+
+黃笠喆 <huanglizhe555@gmail.com>
+下午3:26 (0 分鐘前)
+寄給 我
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 垃圾辨識工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/ml5@latest/dist/ml5.min.js"></script>
+<style>
+body { margin: 0; background-color: #f4f7f6; display: flex; flex-direction: column; align-items: center; font-family: -apple-system, sans-serif; }
+#header { width: 100%; background: #34495e; color: white; padding: 15px; text-align: center; font-size: 1.2rem; }
+#video-container { width: 90%; max-width: 400px; margin-top: 20px; border-radius: 15px; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.15); line-height: 0; }
+#result-card { width: 85%; max-width: 380px; background: white; margin-top: 20px; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+.label-text { font-size: 2rem; color: #27ae60; font-weight: bold; margin-bottom: 10px; }
+.conf-text { color: #95a5a6; font-size: 1rem; }
+#loading { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99; }
+</style>
+</head>
+<body>
+<div id="loading">
+<h2>AI 模型載入中...</h2>
+<p>請稍候並允許相機權限</p>
+</div>
+<div id="header">垃圾辨識 AI 系統</div>
+<div id="video-container"></div>
+<div id="result-card">
+<div class="label-text" id="label">辨識中...</div>
+<div class="conf-text" id="confidence">信心度: --%</div>
+</div>
+
+<script>
+// 已經幫你填入你的模型連結了！
+let modelURL = 'https://teachablemachine.withgoogle.com/models/m1uAKHENd/';
+
+let classifier;
+let video;
+let label = "等待中...";
+let confidence = "";
+
+function preload() {
+classifier = ml5.imageClassifier(modelURL + 'model.json');
+}
+
+function setup() {
+// 建立正方形的畫布，適合手機觀看
+let canvasSize = min(windowWidth * 0.9, 400);
+let canvas = createCanvas(canvasSize, canvasSize);
+canvas.parent('video-container');
+
+// 強制使用後鏡頭 (Environment)
+let constraints = {
+video: { facingMode: "environment" },
+audio: false
+};
+video = createCapture(constraints);
+video.size(canvasSize, canvasSize);
+video.hide();
+classifyVideo();
+}
+
+function draw() {
+// 將畫面畫在畫布上
+image(video, 0, 0, width, height);
+}
+
+function classifyVideo() {
+classifier.classify(video, (error, results) => {
+if (!error && results && results.length > 0) {
+label = results[0].label;
+confidence = (results[0].confidence * 100).toFixed(1);
+document.getElementById('label').innerText = label;
+document.getElementById('confidence').innerText = "信心度: " + confidence + "%";
+document.getElementById('loading').style.display = 'none';
+}
+classifyVideo(); // 持續循環辨識
+});
+}
+
+// 視窗大小改變時自動調整
+function windowResized() {
+let canvasSize = min(windowWidth * 0.9, 400);
+resizeCanvas(canvasSize, canvasSize);
+video.size(canvasSize, canvasSize);
+}
+</script>
+</body>
+</html>
